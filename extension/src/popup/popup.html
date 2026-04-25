@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow AI DLP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 340px;
+      min-height: 460px;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 2px solid #3949ab;
+    }
+    .logo { font-size: 28px; line-height: 1; }
+    .header-text h1 { font-size: 14px; font-weight: 700; color: #fff; }
+    .header-text p  { font-size: 11px; color: #9fa8da; margin-top: 2px; }
+
+    .toggle-wrap {
+      margin-left: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: #37474f;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 3px;
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    input:checked + .slider { background: #43a047; }
+    input:checked + .slider::before { transform: translateX(20px); }
+    .toggle-label { font-size: 10px; color: #9fa8da; }
+
+    /* ── Status Bar ── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #131326;
+      border-bottom: 1px solid #1e1e3a;
+      font-size: 12px;
+      color: #9fa8da;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #43a047;
+      flex-shrink: 0;
+    }
+    .status-dot.off { background: #757575; }
+
+    /* ── Stats Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: #1e1e3a;
+      border-bottom: 1px solid #1e1e3a;
+    }
+    .stat-card {
+      background: #131326;
+      padding: 14px 10px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #e8eaf6;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 10px;
+      color: #5c6bc0;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stat-card.redacted .stat-value { color: #ff9800; }
+    .stat-card.blocked  .stat-value { color: #ef5350; }
+
+    /* ── Section ── */
+    .section {
+      padding: 14px 16px;
+      border-bottom: 1px solid #1e1e3a;
+    }
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #5c6bc0;
+      margin-bottom: 10px;
+    }
+
+    /* ── Recent Events ── */
+    .events-list { display: flex; flex-direction: column; gap: 6px; }
+    .event-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      background: #1a1a2e;
+      border-radius: 8px;
+      border-left: 3px solid #333;
+    }
+    .event-item.critical { border-left-color: #ef5350; }
+    .event-item.high     { border-left-color: #ff9800; }
+    .event-item.medium   { border-left-color: #ffd54f; }
+    .event-item.low      { border-left-color: #66bb6a; }
+    .event-icon { font-size: 14px; flex-shrink: 0; }
+    .event-body { flex: 1; min-width: 0; }
+    .event-title { font-size: 12px; font-weight: 600; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .event-meta  { font-size: 10px; color: #757575; margin-top: 1px; }
+    .event-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .event-badge.critical { background: #b71c1c; color: #fff; }
+    .event-badge.high     { background: #e65100; color: #fff; }
+    .event-badge.medium   { background: #f57f17; color: #fff; }
+    .event-badge.low      { background: #2e7d32; color: #fff; }
+
+    .no-events {
+      text-align: center;
+      color: #424266;
+      font-size: 12px;
+      padding: 16px 0;
+    }
+
+    /* ── Platform Coverage ── */
+    .platforms { display: flex; flex-wrap: wrap; gap: 6px; }
+    .platform-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #1a1a2e;
+      border: 1px solid #2d2d50;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      color: #9fa8da;
+    }
+    .platform-chip .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #43a047;
+    }
+
+    /* ── Per-Site Status ── */
+    .site-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 16px;
+      background: #0e0e22;
+      border-bottom: 1px solid #1e1e3a;
+      font-size: 11px;
+    }
+    .site-info { color: #5c6bc0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .site-toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .site-toggle-label { font-size: 10px; color: #5c6bc0; }
+    .toggle-sm { position: relative; width: 32px; height: 18px; }
+    .toggle-sm input { opacity: 0; width: 0; height: 0; }
+    .slider-sm {
+      position: absolute; inset: 0; background: #37474f; border-radius: 9px;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .slider-sm::before { content:""; position:absolute; left:3px; top:3px; width:12px; height:12px; background:#fff; border-radius:50%; transition:transform 0.2s; }
+    input:checked + .slider-sm { background: #43a047; }
+    input:checked + .slider-sm::before { transform: translateX(14px); }
+
+    /* ── View Last Redaction ── */
+    .view-last-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 9px 16px;
+      background: #111128;
+      border: none;
+      border-bottom: 1px solid #1e1e3a;
+      color: #7986cb;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s, color 0.15s;
+      font-family: inherit;
+    }
+    .view-last-btn:hover { background: #1a1a38; color: #9fa8da; }
+    .view-last-btn.no-data { color: #2d2d50; cursor: default; }
+    .view-last-btn.no-data:hover { background: #111128; color: #2d2d50; }
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: #0b0b18;
+    }
+    .footer-btn {
+      background: #1e1e3a;
+      border: 1px solid #2d2d50;
+      color: #9fa8da;
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .footer-btn:hover { background: #2d2d50; color: #e0e0e0; }
+    .footer-btn.danger:hover { background: #b71c1c22; border-color: #ef5350; color: #ef5350; }
+
+    .version { font-size: 10px; color: #2d2d50; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">🛡️</div>
+    <div class="header-text">
+      <h1>Shadow AI Kill-Switch</h1>
+      <p>Data Loss Prevention</p>
+    </div>
+    <div class="toggle-wrap">
+      <label class="toggle">
+        <input type="checkbox" id="enableToggle" checked>
+        <span class="slider"></span>
+      </label>
+      <span class="toggle-label" id="toggleLabel">ON</span>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Active — monitoring this page</span>
+  </div>
+
+  <!-- Phase 3: Per-site toggle -->
+  <div class="site-bar">
+    <span class="site-info" id="siteHostname">—</span>
+    <div class="site-toggle-wrap">
+      <span class="site-toggle-label" id="siteLabel">This site</span>
+      <label class="toggle-sm">
+        <input type="checkbox" id="siteToggle" checked>
+        <span class="slider-sm"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Phase 3: View last redaction -->
+  <button class="view-last-btn no-data" id="viewLastBtn">
+    🔍 View last redaction details
+  </button>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="statScanned">0</div>
+      <div class="stat-label">Scanned</div>
+    </div>
+    <div class="stat-card redacted">
+      <div class="stat-value" id="statRedacted">0</div>
+      <div class="stat-label">Redacted</div>
+    </div>
+    <div class="stat-card blocked">
+      <div class="stat-value" id="statBlocked">0</div>
+      <div class="stat-label">Blocked</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Recent DLP Events</div>
+    <div class="events-list" id="eventsList">
+      <div class="no-events">No events yet this session</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Protected Platforms</div>
+    <div class="platforms" id="platformsList"></div>
+  </div>
+
+  <div class="footer">
+    <button class="footer-btn danger" id="clearBtn">Clear Stats</button>
+    <span class="version">v1.1.0 — Phase 3</span>
+    <button class="footer-btn" id="settingsBtn">Settings ⚙</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

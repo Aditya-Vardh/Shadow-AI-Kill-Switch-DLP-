@@ -1,0 +1,75 @@
+{
+  "manifest_version": 3,
+  "name": "Shadow AI Kill-Switch (DLP)",
+  "version": "3.0.0",
+  "description": "Automatically detects and redacts sensitive data from AI prompts before they leave your network.",
+
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "alarms",
+    "tabs",
+    "notifications"
+  ],
+
+  "host_permissions": [
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://copilot.microsoft.com/*",
+    "https://www.bing.com/chat*",
+    "https://perplexity.ai/*",
+    "https://poe.com/*",
+    "https://character.ai/*",
+    "https://huggingface.co/chat*"
+  ],
+
+  "background": {
+    "service_worker": "src/background/worker.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://www.bing.com/chat*",
+        "https://perplexity.ai/*",
+        "https://poe.com/*",
+        "https://character.ai/*",
+        "https://huggingface.co/chat*"
+      ],
+      "js": ["src/content/index.js"],
+      "css": ["src/content/overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["src/content/overlay.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

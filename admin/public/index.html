@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shadow AI DLP — Admin Dashboard</title>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d1a;--surface:#13132a;--surface2:#1a1a35;--surface3:#20203f;
+  --border:#2a2a4a;--border2:#353560;
+  --text:#e0e0f0;--text2:#9090b0;--text3:#606080;
+  --accent:#5c6bc0;--accent2:#7986cb;--accent-glow:rgba(92,107,192,0.15);
+  --critical:#ef5350;--high:#ff7043;--medium:#ffca28;--low:#66bb6a;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;min-height:100vh}
+button{font-family:var(--font);cursor:pointer}
+input,select{font-family:var(--font)}
+
+/* ── Layout ──────────────────────────────────────────────── */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:16px;flex-shrink:0}
+.content{flex:1;overflow-y:auto;padding:24px}
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.sidebar-logo{padding:20px 18px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.sidebar-logo .icon{font-size:22px}
+.sidebar-logo .name{font-weight:700;font-size:15px;color:var(--text)}
+.sidebar-logo .version{font-size:10px;color:var(--text3);margin-top:1px}
+.nav-group{padding:12px 0}
+.nav-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;padding:0 18px;margin-bottom:4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 18px;color:var(--text2);cursor:pointer;transition:all .15s;border-left:3px solid transparent;font-size:13px}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-glow);color:var(--accent2);border-left-color:var(--accent)}
+.nav-item .ni{font-size:16px;width:20px;text-align:center}
+.sidebar-bottom{margin-top:auto;padding:16px;border-top:1px solid var(--border)}
+.server-status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#66bb6a}
+.status-dot.off{background:#ef5350}
+
+/* ── Topbar ──────────────────────────────────────────────── */
+.topbar-title{font-weight:700;font-size:16px;flex:1}
+.topbar-actions{display:flex;gap:8px}
+.btn{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;border:none;transition:all .15s;cursor:pointer}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text)}
+.btn-danger{background:#b71c1c;color:#fff}
+.btn-danger:hover{background:#c62828}
+.btn-sm{padding:5px 10px;font-size:11px}
+
+/* ── Cards & Grid ────────────────────────────────────────── */
+.grid{display:grid;gap:16px}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+.grid-2{grid-template-columns:repeat(2,1fr)}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:1200px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:800px){.grid-4,.grid-3,.grid-2{grid-template-columns:1fr}}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-title{font-weight:700;font-size:13px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+
+/* ── Stat Cards ──────────────────────────────────────────── */
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+.stat-card .label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.stat-card .value{font-size:32px;font-weight:800;line-height:1}
+.stat-card .sub{font-size:12px;color:var(--text3);margin-top:4px}
+.stat-card.critical .value{color:var(--critical)}
+.stat-card.high .value{color:var(--high)}
+.stat-card.blocked .value{color:var(--critical)}
+.stat-card.total .value{color:var(--accent2)}
+
+/* ── Tables ──────────────────────────────────────────────── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text2)}
+tr:hover td{background:var(--surface2);color:var(--text)}
+tr:last-child td{border-bottom:none}
+
+/* ── Badges / Pills ──────────────────────────────────────── */
+.pill{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px}
+.pill.critical{background:rgba(239,83,80,.15);color:#ef5350;border:1px solid rgba(239,83,80,.3)}
+.pill.high{background:rgba(255,112,67,.15);color:#ff7043;border:1px solid rgba(255,112,67,.3)}
+.pill.medium{background:rgba(255,202,40,.12);color:#ffca28;border:1px solid rgba(255,202,40,.3)}
+.pill.low{background:rgba(102,187,106,.12);color:#66bb6a;border:1px solid rgba(102,187,106,.3)}
+.pill.block{background:rgba(239,83,80,.2);color:#ef9a9a}
+.pill.redact{background:rgba(255,167,38,.15);color:#ffb74d}
+.pill.warn{background:rgba(255,202,40,.12);color:#ffca28}
+.pill.allow{background:rgba(102,187,106,.1);color:#81c784}
+
+/* ── Inputs ──────────────────────────────────────────────── */
+.input{background:var(--surface2);border:1px solid var(--border2);border-radius:7px;padding:8px 12px;color:var(--text);font-size:13px;width:100%;outline:none;transition:border .15s}
+.input:focus{border-color:var(--accent)}
+select.input option{background:var(--surface2)}
+.input-row{display:flex;gap:10px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
+
+/* ── Toggle ──────────────────────────────────────────────── */
+.toggle-wrap{display:flex;align-items:center;gap:10px;cursor:pointer}
+.toggle-track{width:38px;height:20px;border-radius:10px;background:var(--border2);position:relative;transition:background .2s;flex-shrink:0}
+.toggle-track.on{background:var(--accent)}
+.toggle-thumb{width:14px;height:14px;border-radius:7px;background:#fff;position:absolute;top:3px;left:3px;transition:transform .2s}
+.toggle-track.on .toggle-thumb{transform:translateX(18px)}
+
+/* ── Alert Banner ────────────────────────────────────────── */
+.alert-banner{background:rgba(239,83,80,.08);border:1px solid rgba(239,83,80,.25);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:20px;font-size:13px;color:#ef9a9a}
+
+/* ── Empty State ─────────────────────────────────────────── */
+.empty{text-align:center;padding:48px;color:var(--text3)}
+.empty .eicon{font-size:40px;margin-bottom:12px}
+.empty p{font-size:13px}
+
+/* ── Login Screen ────────────────────────────────────────── */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:360px}
+.login-logo{text-align:center;margin-bottom:28px}
+.login-logo .licon{font-size:48px}
+.login-logo h1{font-size:22px;font-weight:800;margin-top:10px}
+.login-logo p{font-size:13px;color:var(--text3);margin-top:4px}
+.login-form{display:flex;flex-direction:column;gap:14px}
+.login-error{background:rgba(239,83,80,.1);border:1px solid rgba(239,83,80,.3);border-radius:7px;padding:10px 12px;font-size:13px;color:#ef9a9a}
+
+/* ── Live Feed Indicator ─────────────────────────────────── */
+.live-dot{width:8px;height:8px;border-radius:50%;background:#66bb6a;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Pattern Bar ─────────────────────────────────────────── */
+.pattern-bar{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.pattern-bar .pname{font-size:12px;color:var(--text2);min-width:140px}
+.bar-track{flex:1;height:6px;background:var(--surface3);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .5s}
+.pattern-bar .pcount{font-size:12px;color:var(--text3);min-width:30px;text-align:right}
+
+/* ── Risk Score Ring ─────────────────────────────────────── */
+.risk-ring{display:flex;align-items:center;gap:20px}
+.ring-svg{flex-shrink:0}
+
+/* ── Page section ────────────────────────────────────────── */
+.page-title{font-size:22px;font-weight:800;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--text3);margin-bottom:24px}
+.section-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+
+/* ── Tab bar ─────────────────────────────────────────────── */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px}
+.tab:hover{color:var(--text2)}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent2)}
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { useState, useEffect, useRef, useCallback } = React;
+const { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } = Recharts;
+
+// ── Mock API (replace with real fetch calls when backend is running) ─────────
+const API_BASE = window.location.hostname === "localhost" ? "http://localhost:3000" : "";
+let authToken = localStorage.getItem("dlp_token") || null;
+
+async function apiFetch(path, opts = {}) {
+  const headers = { "Content-Type": "application/json", ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}), ...opts.headers };
+  try {
+    const res = await fetch(API_BASE + path, { ...opts, headers });
+    if (res.status === 401) { authToken = null; localStorage.removeItem("dlp_token"); window.location.reload(); }
+    return res.ok ? res.json() : null;
+  } catch { return null; }
+}
+
+// Generate realistic mock data for demo/offline mode
+function mockDashboard() {
+  const now = Date.now();
+  const trend = Array.from({length:14}, (_,i) => {
+    const d = new Date(now - (13-i)*86400000);
+    return { date: d.toLocaleDateString("en",{month:"short",day:"numeric"}), total: 20+Math.floor(Math.random()*80), critical: Math.floor(Math.random()*15), high: Math.floor(Math.random()*25), blocked: Math.floor(Math.random()*10) };
+  });
+  const stats = { total_events: 847, critical_count: 43, high_count: 162, medium_count: 294, low_count: 348, blocked_count: 61, redacted_count: 422, platforms_active: 5, users_active: 28 };
+  const patterns = [
+    { category:"API_KEY", severity:"CRITICAL", count: 89 },
+    { category:"PII", severity:"MEDIUM", count: 241 },
+    { category:"CREDENTIAL", severity:"CRITICAL", count: 54 },
+    { category:"FINANCIAL", severity:"HIGH", count: 76 },
+    { category:"CODE_SECRET", severity:"HIGH", count: 118 },
+    { category:"CONTEXT", severity:"HIGH", count: 67 },
+    { category:"TRADE_SECRET", severity:"MEDIUM", count: 39 },
+  ];
+  return { stats, trend, patterns };
+}
+
+function mockEvents() {
+  const platforms = ["ChatGPT","Claude","Gemini","Copilot","Perplexity"];
+  const actions = ["BLOCK","REDACT","WARN","REDACT","REDACT","WARN"];
+  const risks = ["CRITICAL","HIGH","HIGH","MEDIUM","MEDIUM","LOW"];
+  const cats = [["API_KEY"],["PII","CREDENTIAL"],["FINANCIAL"],["CODE_SECRET"],["CONTEXT"],["TRADE_SECRET"]];
+  return Array.from({length:50}, (_,i) => ({
+    id: i+1, event_id: `dlp_${Date.now()-i*60000}_abc${i}`,
+    timestamp: new Date(Date.now()-i*7*60000).toISOString(),
+    platform_name: platforms[i%platforms.length],
+    action: actions[i%actions.length],
+    risk_level: risks[i%risks.length],
+    finding_count: 1+Math.floor(Math.random()*5),
+    categories: (cats[i%cats.length]).map(c=>({category:c,severity:"HIGH"})),
+    trigger: ["keydown","paste","submit_click"][i%3],
+    url: ["chat.openai.com","claude.ai","gemini.google.com"][i%3],
+  }));
+}
+
+function mockUsers() {
+  return [
+    { id:1, email:"admin@corp.example.com", name:"Alice Johnson", role:"SUPER_ADMIN", department:"Security", last_login: new Date(Date.now()-3600000).toISOString() },
+    { id:2, email:"sec@corp.example.com", name:"Bob Chen", role:"SECURITY_ADMIN", department:"IT Security", last_login: new Date(Date.now()-7200000).toISOString() },
+    { id:3, email:"audit@corp.example.com", name:"Carol Smith", role:"AUDITOR", department:"Compliance", last_login: new Date(Date.now()-86400000).toISOString() },
+    { id:4, email:"dev@corp.example.com", name:"David Park", role:"END_USER", department:"Engineering", last_login: new Date(Date.now()-172800000).toISOString() },
+  ];
+}
+
+// ── Components ────────────────────────────────────────────────────────────────
+
+function Toggle({ value, onChange, label }) {
+  return React.createElement("div", { className:"toggle-wrap", onClick:()=>onChange(!value) },
+    React.createElement("div", { className:`toggle-track ${value?"on":""}` },
+      React.createElement("div", { className:"toggle-thumb" })
+    ),
+    label && React.createElement("span", { style:{fontSize:13,color:"var(--text2)"} }, label)
+  );
+}
+
+function Pill({ value, type }) {
+  const cls = (value||"").toLowerCase();
+  return React.createElement("span", { className:`pill ${type||cls}` }, value);
+}
+
+function StatCard({ label, value, sub, cls }) {
+  return React.createElement("div", { className:`stat-card ${cls||""}` },
+    React.createElement("div", { className:"label" }, label),
+    React.createElement("div", { className:"value" }, value?.toLocaleString() ?? "—"),
+    sub && React.createElement("div", { className:"sub" }, sub)
+  );
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+function Login({ onLogin }) {
+  const [email, setEmail] = useState("admin@corp.example.com");
+  const [pass, setPass] = useState("demo");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin() {
+    setLoading(true); setError(null);
+    const data = await apiFetch("/api/auth/login", { method:"POST", body:JSON.stringify({email,password:pass}) });
+    setLoading(false);
+    if (data?.token) {
+      authToken = data.token;
+      localStorage.setItem("dlp_token", data.token);
+      onLogin(data.user);
+    } else {
+      // Demo mode — bypass auth with mock user
+      onLogin({ email, name: email.split("@")[0], role: "SUPER_ADMIN" });
+    }
+  }
+
+  return React.createElement("div", { className:"login-wrap" },
+    React.createElement("div", { className:"login-card" },
+      React.createElement("div", { className:"login-logo" },
+        React.createElement("div", { className:"licon" }, "🛡️"),
+        React.createElement("h1", null, "Shadow AI DLP"),
+        React.createElement("p", null, "Admin Dashboard")
+      ),
+      React.createElement("div", { className:"login-form" },
+        error && React.createElement("div", { className:"login-error" }, error),
+        React.createElement("div", { className:"field" },
+          React.createElement("label", null, "Email"),
+          React.createElement("input", { className:"input", value:email, onChange:e=>setEmail(e.target.value), placeholder:"admin@corp.example.com" })
+        ),
+        React.createElement("div", { className:"field" },
+          React.createElement("label", null, "Password"),
+          React.createElement("input", { className:"input", type:"password", value:pass, onChange:e=>setPass(e.target.value), onKeyDown:e=>e.key==="Enter"&&handleLogin() })
+        ),
+        React.createElement("button", { className:"btn btn-primary", style:{width:"100%",padding:"11px"}, onClick:handleLogin, disabled:loading }, loading ? "Signing in…" : "Sign In"),
+        React.createElement("p", { style:{textAlign:"center",fontSize:12,color:"var(--text3)"} }, "Demo mode: click Sign In with any password")
+      )
+    )
+  );
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function Sidebar({ page, setPage, user }) {
+  const nav = [
+    { id:"dashboard", icon:"📊", label:"Dashboard" },
+    { id:"events", icon:"⚡", label:"Live Events" },
+    { id:"analytics", icon:"📈", label:"Analytics" },
+    { id:"policy", icon:"⚙️", label:"Policy Manager" },
+    { id:"users", icon:"👥", label:"Users & Roles" },
+    { id:"export", icon:"📄", label:"Compliance Export" },
+  ];
+
+  return React.createElement("div", { className:"sidebar" },
+    React.createElement("div", { className:"sidebar-logo" },
+      React.createElement("span", { className:"icon" }, "🛡️"),
+      React.createElement("div", null,
+        React.createElement("div", { className:"name" }, "DLP Console"),
+        React.createElement("div", { className:"version" }, "v3.0 · Phase 5")
+      )
+    ),
+    React.createElement("div", { className:"nav-group" },
+      React.createElement("div", { className:"nav-label" }, "Monitor"),
+      nav.slice(0,3).map(n => React.createElement("div", { key:n.id, className:`nav-item ${page===n.id?"active":""}`, onClick:()=>setPage(n.id) },
+        React.createElement("span", { className:"ni" }, n.icon), n.label
+      ))
+    ),
+    React.createElement("div", { className:"nav-group" },
+      React.createElement("div", { className:"nav-label" }, "Configure"),
+      nav.slice(3).map(n => React.createElement("div", { key:n.id, className:`nav-item ${page===n.id?"active":""}`, onClick:()=>setPage(n.id) },
+        React.createElement("span", { className:"ni" }, n.icon), n.label
+      ))
+    ),
+    React.createElement("div", { className:"sidebar-bottom" },
+      React.createElement("div", { className:"server-status" },
+        React.createElement("div", { className:"status-dot" }),
+        React.createElement("span", null, "Policy Server Online")
+      ),
+      user && React.createElement("div", { style:{marginTop:8,fontSize:12,color:"var(--text3)"} }, user.email)
+    )
+  );
+}
+
+// ── Dashboard Page ────────────────────────────────────────────────────────────
+function DashboardPage() {
+  const { stats, trend, patterns } = mockDashboard();
+  const maxPat = Math.max(...patterns.map(p=>p.count));
+  const riskDist = [
+    { name:"CRITICAL", value:stats.critical_count, color:"#ef5350" },
+    { name:"HIGH",     value:stats.high_count,     color:"#ff7043" },
+    { name:"MEDIUM",   value:stats.medium_count,   color:"#ffca28" },
+    { name:"LOW",      value:stats.low_count,      color:"#66bb6a" },
+  ];
+
+  return React.createElement("div", null,
+    React.createElement("div", { className:"page-title" }, "Security Dashboard"),
+    React.createElement("p", { className:"page-sub" }, "30-day overview of DLP activity across all AI platforms"),
+
+    React.createElement("div", { className:"grid grid-4", style:{marginBottom:20} },
+      React.createElement(StatCard, { label:"Total Events", value:stats.total_events, sub:"Last 30 days", cls:"total" }),
+      React.createElement(StatCard, { label:"Critical Detections", value:stats.critical_count, sub:`${((stats.critical_count/stats.total_events)*100).toFixed(1)}% of total`, cls:"critical" }),
+      React.createElement(StatCard, { label:"Prompts Blocked", value:stats.blocked_count, sub:"CRITICAL severity", cls:"blocked" }),
+      React.createElement(StatCard, { label:"Users Active", value:stats.users_active, sub:`${stats.platforms_active} AI platforms` }),
+    ),
+
+    React.createElement("div", { className:"grid grid-2", style:{marginBottom:20} },
+      React.createElement("div", { className:"card" },
+        React.createElement("div", { className:"card-header" },
+          React.createElement("span", { className:"card-title" }, "📈 Event Volume (14 days)"),
+        ),
+        React.createElement(ResponsiveContainer, { width:"100%", height:200 },
+          React.createElement(AreaChart, { data:trend, margin:{top:5,right:10,left:-20,bottom:0} },
+            React.createElement(XAxis, { dataKey:"date", tick:{fill:"#606080",fontSize:10} }),
+            React.createElement(YAxis, { tick:{fill:"#606080",fontSize:10} }),
+            React.createElement(Tooltip, { contentStyle:{background:"#13132a",border:"1px solid #2a2a4a",borderRadius:8,color:"#e0e0f0"} }),
+            React.createElement(Area, { type:"monotone", dataKey:"total", stroke:"#5c6bc0", fill:"rgba(92,107,192,0.15)", strokeWidth:2, name:"Total" }),
+            React.createElement(Area, { type:"monotone", dataKey:"critical", stroke:"#ef5350", fill:"rgba(239,83,80,0.1)", strokeWidth:2, name:"Critical" }),
+          )
+        )
+      ),
+      React.createElement("div", { className:"card" },
+        React.createElement("div", { className:"card-header" },
+          React.createElement("span", { className:"card-title" }, "🥧 Risk Distribution")
+        ),
+        React.createElement(ResponsiveContainer, { width:"100%", height:200 },
+          React.createElement(PieChart, null,
+            React.createElement(Pie, { data:riskDist, cx:"50%", cy:"50%", innerRadius:55, outerRadius:80, paddingAngle:3, dataKey:"value" },
+              riskDist.map((entry,i) => React.createElement(Cell, { key:i, fill:entry.color }))
+            ),
+            React.createElement(Legend, { wrapperStyle:{fontSize:12,color:"#9090b0"} }),
+            React.createElement(Tooltip, { contentStyle:{background:"#13132a",border:"1px solid #2a2a4a",borderRadius:8,color:"#e0e0f0"} }),
+          )
+        )
+      )
+    ),
+
+    React.createElement("div", { className:"card" },
+      React.createElement("div", { className:"card-header" },
+        React.createElement("span", { className:"card-title" }, "🎯 Top Triggered Pattern Categories (7 days)")
+      ),
+      patterns.map(p =>
+        React.createElement("div", { key:p.category, className:"pattern-bar" },
+          React.createElement("span", { className:"pname" }, p.category),
+          React.createElement("div", { className:"bar-track" },
+            React.createElement("div", { className:"bar-fill", style:{
+              width:`${(p.count/maxPat)*100}%`,
+              background: p.severity==="CRITICAL"?"#ef5350":p.severity==="HIGH"?"#ff7043":"#5c6bc0"
+            }})
+          ),
+          React.createElement("span", { className:"pcount" }, p.count)
+        )
+      )
+    )
+  );
+}
+
+// ── Events Page ───────────────────────────────────────────────────────────────
+function EventsPage() {
+  const [events, setEvents] = useState(mockEvents());
+  const [filter, setFilter] = useState({ risk:"", action:"", platform:"" });
+  const [liveMode, setLiveMode] = useState(true);
+  const [newCount, setNewCount] = useState(0);
+
+  // Simulate live events
+  useEffect(() => {
+    if (!liveMode) return;
+    const interval = setInterval(() => {
+      const risks = ["CRITICAL","HIGH","MEDIUM","LOW"];
+      const platforms = ["ChatGPT","Claude","Gemini","Copilot"];
+      const actions = ["BLOCK","REDACT","WARN"];
+      const newEvent = {
+        id: Date.now(), event_id: `dlp_${Date.now()}_live`,
+        timestamp: new Date().toISOString(),
+        platform_name: platforms[Math.floor(Math.random()*platforms.length)],
+        action: actions[Math.floor(Math.random()*actions.length)],
+        risk_level: risks[Math.floor(Math.random()*risks.length)],
+        finding_count: 1+Math.floor(Math.random()*4),
+        trigger: "keydown", url: "chat.openai.com",
+        categories: [{category:"API_KEY",severity:"HIGH"}]
+      };
+      setEvents(prev => [newEvent, ...prev.slice(0,99)]);
+      setNewCount(n => n+1);
+    }, 8000 + Math.random()*12000);
+    return () => clearInterval(interval);
+  }, [liveMode]);
+
+  const filtered = events.filter(e => {
+    if (filter.risk && e.risk_level !== filter.risk) return false;
+    if (filter.action && e.action !== filter.action) return false;
+    if (filter.platform && !e.platform_name?.toLowerCase().includes(filter.platform.toLowerCase())) return false;
+    return true;
+  });
+
+  return React.createElement("div", null,
+    React.createElement("div", { className:"page-title" }, "Live Event Feed"),
+    React.createElement("p", { className:"page-sub" }, "Real-time DLP events from all connected extensions"),
+
+    React.createElement("div", { style:{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap",alignItems:"center"} },
+      React.createElement("select", { className:"input", style:{width:140}, value:filter.risk, onChange:e=>setFilter(f=>({...f,risk:e.target.value})) },
+        React.createElement("option", { value:"" }, "All Risks"),
+        ["CRITICAL","HIGH","MEDIUM","LOW"].map(r=>React.createElement("option",{key:r,value:r},r))
+      ),
+      React.createElement("select", { className:"input", style:{width:130}, value:filter.action, onChange:e=>setFilter(f=>({...f,action:e.target.value})) },
+        React.createElement("option", { value:"" }, "All Actions"),
+        ["BLOCK","REDACT","WARN","ALLOW"].map(a=>React.createElement("option",{key:a,value:a},a))
+      ),
+      React.createElement("input", { className:"input", style:{width:160}, placeholder:"Filter platform…", value:filter.platform, onChange:e=>setFilter(f=>({...f,platform:e.target.value})) }),
+      React.createElement("div", { style:{marginLeft:"auto",display:"flex",alignItems:"center",gap:10} },
+        liveMode && React.createElement("span", { style:{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"#66bb6a"} },
+          React.createElement("span", { className:"live-dot" }), `Live · ${newCount} new`
+        ),
+        React.createElement(Toggle, { value:liveMode, onChange:setLiveMode, label:"Live updates" })
+      )
+    ),
+
+    React.createElement("div", { className:"card" },
+      React.createElement("div", { className:"table-wrap" },
+        React.createElement("table", null,
+          React.createElement("thead", null,
+            React.createElement("tr", null,
+              ["Time","Platform","Risk","Action","Findings","Trigger","URL"].map(h=>React.createElement("th",{key:h},h))
+            )
+          ),
+          React.createElement("tbody", null,
+            filtered.slice(0,50).map(ev =>
+              React.createElement("tr", { key:ev.id },
+                React.createElement("td", { style:{fontFamily:"monospace",fontSize:11} }, new Date(ev.timestamp).toLocaleTimeString()),
+                React.createElement("td", { style:{fontWeight:600,color:"var(--text)"} }, ev.platform_name),
+                React.createElement("td", null, React.createElement(Pill, { value:ev.risk_level })),
+                React.createElement("td", null, React.createElement(Pill, { value:ev.action, type:ev.action.toLowerCase() })),
+                React.createElement("td", null, ev.finding_count),
+                React.createElement("td", { style:{fontFamily:"monospace",fontSize:11} }, ev.trigger),
+                React.createElement("td", { style:{fontFamily:"monospace",fontSize:11,color:"var(--text3)"} }, ev.url)
+              )
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+// ── Analytics Page ────────────────────────────────────────────────────────────
+function AnalyticsPage() {
+  const { trend } = mockDashboard();
+  const platformData = [
+    { name:"ChatGPT", events:312, blocked:28, fill:"#5c6bc0" },
+    { name:"Claude", events:198, blocked:15, fill:"#7986cb" },
+    { name:"Gemini", events:156, blocked:9, fill:"#9575cd" },
+    { name:"Copilot", events:123, blocked:7, fill:"#7e57c2" },
+    { name:"Perplexity", events:58, blocked:2, fill:"#b39ddb" },
+  ];
+  const hourlyData = Array.from({length:24}, (_,i) => ({
+    hour: `${String(i).padStart(2,"0")}:00`,
+    events: i>=9&&i<=18 ? 15+Math.floor(Math.random()*60) : Math.floor(Math.random()*8)
+  }));
+
+  return React.createElement("div", null,
+    React.createElement("div", { className:"page-title" }, "Risk Analytics"),
+    React.createElement("p", { className:"page-sub" }, "Platform coverage, usage patterns, and risk heatmaps"),
+
+    React.createElement("div", { className:"grid grid-2", style:{marginBottom:20} },
+      React.createElement("div", { className:"card" },
+        React.createElement("div", { className:"card-header" },
+          React.createElement("span", { className:"card-title" }, "📡 Events by AI Platform")
+        ),
+        React.createElement(ResponsiveContainer, { width:"100%", height:220 },
+          React.createElement(BarChart, { data:platformData, layout:"vertical", margin:{left:10,right:20,top:5,bottom:5} },
+            React.createElement(XAxis, { type:"number", tick:{fill:"#606080",fontSize:10} }),
+            React.createElement(YAxis, { type:"category", dataKey:"name", tick:{fill:"#9090b0",fontSize:11}, width:70 }),
+            React.createElement(Tooltip, { contentStyle:{background:"#13132a",border:"1px solid #2a2a4a",borderRadius:8,color:"#e0e0f0"} }),
+            React.createElement(Bar, { dataKey:"events", name:"Events", fill:"#5c6bc0", radius:[0,4,4,0] }),
+            React.createElement(Bar, { dataKey:"blocked", name:"Blocked", fill:"#ef5350", radius:[0,4,4,0] })
+          )
+        )
+      ),
+      React.createElement("div", { className:"card" },
+        React.createElement("div", { className:"card-header" },
+          React.createElement("span", { className:"card-title" }, "🕐 Hourly Activity Heatmap")
+        ),
+        React.createElement(ResponsiveContainer, { width:"100%", height:220 },
+          React.createElement(BarChart, { data:hourlyData, margin:{top:5,right:10,left:-20,bottom:0} },
+            React.createElement(XAxis, { dataKey:"hour", tick:{fill:"#606080",fontSize:9}, interval:3 }),
+            React.createElement(YAxis, { tick:{fill:"#606080",fontSize:10} }),
+            React.createElement(Tooltip, { contentStyle:{background:"#13132a",border:"1px solid #2a2a4a",borderRadius:8,color:"#e0e0f0"} }),
+            React.createElement(Bar, { dataKey:"events", fill:"#5c6bc0", radius:[3,3,0,0] })
+          )
+        )
+      )
+    ),
+
+    React.createElement("div", { className:"card" },
+      React.createElement("div", { className:"card-header" },
+        React.createElement("span", { className:"card-title" }, "📊 Blocked vs Redacted Trend (14 days)")
+      ),
+      React.createElement(ResponsiveContainer, { width:"100%", height:200 },
+        React.createElement(AreaChart, { data:trend, margin:{top:5,right:10,left:-20,bottom:0} },
+          React.createElement(XAxis, { dataKey:"date", tick:{fill:"#606080",fontSize:10} }),
+          React.createElement(YAxis, { tick:{fill:"#606080",fontSize:10} }),
+          React.createElement(Tooltip, { contentStyle:{background:"#13132a",border:"1px solid #2a2a4a",borderRadius:8,color:"#e0e0f0"} }),
+          React.createElement(Area, { type:"monotone", dataKey:"blocked", stroke:"#ef5350", fill:"rgba(239,83,80,0.15)", strokeWidth:2, name:"Blocked" }),
+          React.createElement(Area, { type:"monotone", dataKey:"high", stroke:"#ff7043", fill:"rgba(255,112,67,0.1)", strokeWidth:2, name:"High Risk" }),
+        )
+      )
+    )
+  );
+}
+
+// ── Policy Manager Page ───────────────────────────────────────────────────────
+function PolicyPage() {
+  const [tab, setTab] = useState("rules");
+  const [saved, setSaved] = useState(false);
+  const [actions, setActions] = useState({ CRITICAL:"BLOCK", HIGH:"REDACT", MEDIUM:"WARN", LOW:"WARN" });
+  const [categories, setCategories] = useState({
+    API_KEY:true, CREDENTIAL:true, PII:true, FINANCIAL:true,
+    CODE_SECRET:true, TRADE_SECRET:true, CONTEXT:true
+  });
+  const [toggles, setToggles] = useState({ evasionDetect:true, contextAnalysis:true, nerEnabled:true, serverSync:false });
+  const [testInput, setTestInput] = useState("");
+  const [testResult, setTestResult] = useState(null);
+
+  function savePolicy() {
+    setSaved(true);
+    setTimeout(()=>setSaved(false), 2500);
+  }
+
+  function runTest() {
+    const text = testInput.trim();
+    if (!text) return;
+    const findings = [];
+    if (/AKIA[A-Z0-9]{16}/.test(text)) findings.push({ label:"AWS Access Key", severity:"CRITICAL" });
+    if (/sk-[A-Za-z0-9]{20,}/.test(text)) findings.push({ label:"OpenAI API Key", severity:"CRITICAL" });
+    if (/\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/.test(text)) findings.push({ label:"Email Address", severity:"MEDIUM" });
+    if (/(?:password|passwd)\s*[:=]\s*\S+/i.test(text)) findings.push({ label:"Password in Text", severity:"CRITICAL" });
+    if (/\b\d{3}-\d{2}-\d{4}\b/.test(text)) findings.push({ label:"SSN", severity:"CRITICAL" });
+    if (/mongodb:\/\/|postgresql:\/\//.test(text)) findings.push({ label:"DB Connection String", severity:"CRITICAL" });
+    setTestResult({ findings, input:text });
+  }
+
+  const catList = [
+    { id:"API_KEY", icon:"🔑", label:"API Keys & Tokens" },
+    { id:"CREDENTIAL", icon:"🔐", label:"Credentials" },
+    { id:"PII", icon:"👤", label:"Personal Info (PII)" },
+    { id:"FINANCIAL", icon:"💳", label:"Financial Data" },
+    { id:"CODE_SECRET", icon:"💻", label:"Code Secrets" },
+    { id:"TRADE_SECRET", icon:"🏢", label:"Trade Secrets" },
+    { id:"CONTEXT", icon:"🧠", label:"Context Signals" },
+  ];
+
+  return React.createElement("div", null,
+    React.createElement("div", { className:"page-title" }, "Policy Manager"),
+    React.createElement("p", { className:"page-sub" }, "Configure detection rules, redaction behavior, and enabled categories"),
+
+    React.createElement("div", { className:"tabs" },
+      ["rules","categories","playground"].map(t =>
+        React.createElement("div", { key:t, className:`tab ${tab===t?"active":""}`, onClick:()=>setTab(t) },
+          {rules:"⚙️ Risk Actions",categories:"📦 Categories",playground:"🧪 Test Playground"}[t]
+        )
+      )
+    ),
+
+    tab === "rules" && React.createElement("div", null,
+      React.createElement("div", { className:"grid grid-2", style:{marginBottom:20} },
+        React.createElement("div", { className:"card" },
+          React.createElement("div", { className:"card-header" },
+            React.createElement("span", { className:"card-title" }, "Risk Level Actions")
+          ),
+          React.createElement("p", { style:{fontSize:12,color:"var(--text3)",marginBottom:16} }, "Configure what happens when each risk level is detected"),
+          ["CRITICAL","HIGH","MEDIUM","LOW"].map(level =>
+            React.createElement("div", { key:level, style:{display:"flex",alignItems:"center",gap:12,marginBottom:12} },
+              React.createElement(Pill, { value:level }),
+              React.createElement("select", { className:"input", value:actions[level], onChange:e=>setActions(a=>({...a,[level]:e.target.value})) },
+                ["BLOCK","REDACT","WARN","ALLOW"].map(a=>React.createElement("option",{key:a,value:a},a))
+              )
+            )
+          )
+        ),
+        React.createElement("div", { className:"card" },
+          React.createElement("div", { className:"card-header" },
+            React.createElement("span", { className:"card-title" }, "Engine Settings")
+          ),
+          [
+            { key:"evasionDetect", label:"Evasion Detection", desc:"Normalize Unicode, decode base64/hex before scanning" },
+            { key:"contextAnalysis", label:"Context Analysis", desc:"False positive suppression + severity upgrades" },
+            { key:"nerEnabled", label:"Named Entity Recognition", desc:"Detect names, addresses, medical/financial context" },
+            { key:"serverSync", label:"Policy Server Sync", desc:"Sync policy updates from corporate server" },
+          ].map(s =>
+            React.createElement("div", { key:s.key, style:{display:"flex",alignItems:"flex-start",gap:12,marginBottom:14} },
+              React.createElement(Toggle, { value:toggles[s.key], onChange:v=>setToggles(t=>({...t,[s.key]:v})) }),
+              React.createElement("div", null,
+                React.createElement("div", { style:{fontSize:13,fontWeight:600,color:"var(--text)"} }, s.label),
+                React.createElement("div", { style:{fontSize:11,color:"var(--text3)",marginTop:2} }, s.desc)
+              )
+            )
+          )
+        )
+      ),
+      React.createElement("button", { className:`btn btn-primary`, onClick:savePolicy }, saved ? "✓ Saved!" : "💾 Save Policy")
+    ),
+
+    tab === "categories" && React.createElement("div", { className:"grid grid-2" },
+      catList.map(c =>
+        React.createElement("div", { key:c.id, className:"card", style:{display:"flex",alignItems:"center",gap:14} },
+          React.createElement("span", { style:{fontSize:24} }, c.icon),
+          React.createElement("div", { style:{flex:1} },
+            React.createElement("div", { style:{fontSize:13,fontWeight:700,color:"var(--text)"} }, c.label),
+            React.createElement("div", { style:{fontSize:11,color:"var(--text3)",marginTop:2} }, c.id)
+          ),
+          React.createElement(Toggle, { value:categories[c.id], onChange:v=>setCategories(cats=>({...cats,[c.id]:v})) })
+        )
+      )
+    ),
+
+    tab === "playground" && React.createElement("div", null,
+      React.createElement("div", { className:"card", style:{marginBottom:16} },
+        React.createElement("div", { className:"card-header" },
+          React.createElement("span", { className:"card-title" }, "🧪 Detection Playground")
+        ),
+        React.createElement("p", { style:{fontSize:12,color:"var(--text3)",marginBottom:12} }, "Paste sample text to test which patterns would be detected. Try pasting an AWS key, email address, or password."),
+        React.createElement("textarea", {
+          className:"input", rows:6, style:{resize:"vertical",fontFamily:"monospace",fontSize:12},
+          placeholder:"Paste sample text here...\n\nExamples to try:\n  AKIAIOSFODNN7EXAMPLE\n  password = mysecretpass123\n  user@company.com\n  mongodb://admin:pass@db.internal:27017/prod",
+          value:testInput, onChange:e=>setTestInput(e.target.value)
+        }),
+        React.createElement("div", { style:{marginTop:10,display:"flex",gap:8} },
+          React.createElement("button", { className:"btn btn-primary", onClick:runTest }, "🔍 Run Detection"),
+          React.createElement("button", { className:"btn btn-ghost", onClick:()=>{setTestInput("");setTestResult(null)} }, "Clear")
+        )
+      ),
+      testResult && React.createElement("div", { className:"card" },
+        React.createElement("div", { className:"card-header" },
+          React.createElement("span", { className:"card-title" }, testResult.findings.length > 0 ? `⚠️ ${testResult.findings.length} Finding${testResult.findings.length>1?"s":""} Detected` : "✅ Clean — No Findings")
+        ),
+        testResult.findings.length === 0
+          ? React.createElement("p", { style:{color:"#66bb6a",fontSize:13} }, "No sensitive data patterns detected in this sample.")
+          : testResult.findings.map((f,i) =>
+              React.createElement("div", { key:i, style:{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid var(--border)"} },
+                React.createElement(Pill, { value:f.severity }),
+                React.createElement("span", { style:{fontSize:13,color:"var(--text)"} }, f.label)
+              )
+            )
+      )
+    )
+  );
+}
+
+// ── Users Page ────────────────────────────────────────────────────────────────
+function UsersPage() {
+  const [users, setUsers] = useState(mockUsers());
+  const roleColors = { SUPER_ADMIN:"#ef5350", SECURITY_ADMIN:"#ff7043", AUDITOR:"#5c6bc0", END_USER:"#606080" };
+
+  return React.createElement("div", null,
+    React.createElement("div", { className:"page-title" }, "Users & Roles"),
+    React.createElement("p", { className:"page-sub" }, "Manage admin access and role-based permissions"),
+
+    React.createElement("div", { className:"card", style:{marginBottom:16} },
+      React.createElement("div", { className:"card-header" },
+        React.createElement("span", { className:"card-title" }, "Role Reference"),
+      ),
+      React.createElement("div", { className:"grid grid-4" },
+        [
+          { role:"SUPER_ADMIN", desc:"Full access — user management, policy, audit", color:"#ef5350" },
+          { role:"SECURITY_ADMIN", desc:"Policy management + full audit access", color:"#ff7043" },
+          { role:"AUDITOR", desc:"Read-only access to all audit logs", color:"#5c6bc0" },
+          { role:"END_USER", desc:"Extension only — no dashboard access", color:"#606080" },
+        ].map(r =>
+          React.createElement("div", { key:r.role, style:{background:"var(--surface2)",borderRadius:8,padding:12,borderLeft:`3px solid ${r.color}`} },
+            React.createElement("div", { style:{fontSize:11,fontWeight:700,color:r.color,marginBottom:4} }, r.role.replace("_"," ")),
+            React.createElement("div", { style:{fontSize:11,color:"var(--text3)"} }, r.desc)
+          )
+        )
+      )
+    ),
+
+    React.createElement("div", { className:"card" },
+      React.createElement("div", { className:"card-header" },
+        React.createElement("span", { className:"card-title" }, `${users.length} Admin Users`),
+        React.createElement("button", { className:"btn btn-primary btn-sm" }, "+ Invite User")
+      ),
+      React.createElement("div", { className:"table-wrap" },
+        React.createElement("table", null,
+          React.createElement("thead", null,
+            React.createElement("tr", null,
+              ["Name","Email","Role","Department","Last Login","Actions"].map(h=>React.createElement("th",{key:h},h))
+            )
+          ),
+          React.createElement("tbody", null,
+            users.map(u =>
+              React.createElement("tr", { key:u.id },
+                React.createElement("td", { style:{fontWeight:600,color:"var(--text)"} }, u.name),
+                React.createElement("td", { style:{fontFamily:"monospace",fontSize:12} }, u.email),
+                React.createElement("td", null,
+                  React.createElement("span", { style:{fontSize:11,fontWeight:700,color:roleColors[u.role]||"#fff",background:`${roleColors[u.role]}20`,padding:"2px 8px",borderRadius:4} }, u.role.replace("_"," "))
+                ),
+                React.createElement("td", null, u.department),
+                React.createElement("td", { style:{fontSize:12,color:"var(--text3)"} }, new Date(u.last_login).toLocaleString()),
+                React.createElement("td", null,
+                  React.createElement("select", {
+                    className:"input", style:{width:140,padding:"4px 8px",fontSize:11},
+                    value:u.role,
+                    onChange:e=>setUsers(prev=>prev.map(uu=>uu.id===u.id?{...uu,role:e.target.value}:uu))
+                  },
+                    ["SUPER_ADMIN","SECURITY_ADMIN","AUDITOR","END_USER"].map(r=>React.createElement("option",{key:r,value:r},r))
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+// ── Export Page ───────────────────────────────────────────────────────────────
+function ExportPage() {
+  const [range, setRange] = useState("30");
+  const [format, setFormat] = useState("csv");
+  const [exporting, setExporting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  function handleExport() {
+    setExporting(true);
+    setTimeout(() => {
+      // Generate mock CSV
+      const events = mockEvents();
+      const header = "event_id,timestamp,platform,action,risk_level,finding_count,trigger\n";
+      const rows = events.map(e => `${e.event_id},${e.timestamp},${e.platform_name},${e.action},${e.risk_level},${e.finding_count},${e.trigger}`).join("\n");
+      const blob = new Blob([header+rows], { type:"text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement("a"), { href:url, download:`dlp-audit-${Date.now()}.csv` });
+      a.click();
+      URL.revokeObjectURL(url);
+      setExporting(false);
+      setDone(true);
+      setTimeout(()=>setDone(false), 3000);
+    }, 1500);
+  }
+
+  const reports = [
+    { title:"GDPR Data Processing Report", desc:"Article 30 ROPA-compatible export of all PII-related DLP events", icon:"🇪🇺", tag:"GDPR" },
+    { title:"HIPAA Security Rule Report", desc:"PHI-related DLP events for healthcare compliance audit", icon:"🏥", tag:"HIPAA" },
+    { title:"SOC 2 Evidence Package", desc:"Complete audit evidence: policy versions, events, chain integrity check", icon:"🔏", tag:"SOC 2" },
+    { title:"Monthly Executive Summary", desc:"High-level metrics: incidents prevented, coverage, top risk areas", icon:"📊", tag:"EXEC" },
+  ];
+
+  return React.createElement("div", null,
+    React.createElement("div", { className:"page-title" }, "Compliance Export"),
+    React.createElement("p", { className:"page-sub" }, "Generate GDPR, HIPAA, and SOC 2 audit reports"),
+
+    React.createElement("div", { className:"card", style:{marginBottom:20} },
+      React.createElement("div", { className:"card-header" },
+        React.createElement("span", { className:"card-title" }, "📥 Custom Export")
+      ),
+      React.createElement("div", { className:"grid grid-3", style:{marginBottom:16} },
+        React.createElement("div", { className:"field" },
+          React.createElement("label", null, "Date Range"),
+          React.createElement("select", { className:"input", value:range, onChange:e=>setRange(e.target.value) },
+            [["7","Last 7 days"],["30","Last 30 days"],["90","Last 90 days"],["365","Last year"]].map(([v,l])=>React.createElement("option",{key:v,value:v},l))
+          )
+        ),
+        React.createElement("div", { className:"field" },
+          React.createElement("label", null, "Format"),
+          React.createElement("select", { className:"input", value:format, onChange:e=>setFormat(e.target.value) },
+            [["csv","CSV (spreadsheet)"],["json","JSON (raw data)"]].map(([v,l])=>React.createElement("option",{key:v,value:v},l))
+          )
+        ),
+        React.createElement("div", { className:"field" },
+          React.createElement("label", null, "\u00a0"),
+          React.createElement("button", { className:"btn btn-primary", style:{height:38}, onClick:handleExport, disabled:exporting },
+            exporting ? "Generating…" : done ? "✓ Downloaded!" : `Export ${format.toUpperCase()}`
+          )
+        )
+      ),
+      React.createElement("div", { style:{background:"rgba(92,107,192,.08)",border:"1px solid rgba(92,107,192,.2)",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#9fa8da"} },
+        "🔒 All exports contain only anonymized metadata — no raw sensitive data, no prompt text. Each export includes the audit chain integrity hash for tamper-evidence verification."
+      )
+    ),
+
+    React.createElement("div", { className:"section-title" }, "Pre-Built Compliance Reports"),
+    React.createElement("div", { className:"grid grid-2" },
+      reports.map(r =>
+        React.createElement("div", { key:r.title, className:"card", style:{display:"flex",gap:16,alignItems:"flex-start"} },
+          React.createElement("span", { style:{fontSize:32} }, r.icon),
+          React.createElement("div", { style:{flex:1} },
+            React.createElement("div", { style:{display:"flex",alignItems:"center",gap:8,marginBottom:4} },
+              React.createElement("span", { style:{fontSize:13,fontWeight:700,color:"var(--text)"} }, r.title),
+              React.createElement("span", { style:{fontSize:10,fontWeight:700,padding:"2px 6px",borderRadius:3,background:"var(--surface3)",color:"var(--text3)"} }, r.tag)
+            ),
+            React.createElement("p", { style:{fontSize:12,color:"var(--text3)",marginBottom:10} }, r.desc),
+            React.createElement("button", { className:"btn btn-ghost btn-sm" }, "Generate Report")
+          )
+        )
+      )
+    )
+  );
+}
+
+// ── App Shell ─────────────────────────────────────────────────────────────────
+function App() {
+  const [user, setUser] = useState(null);
+  const [page, setPage] = useState("dashboard");
+
+  if (!user) return React.createElement(Login, { onLogin:setUser });
+
+  const pages = {
+    dashboard: React.createElement(DashboardPage),
+    events: React.createElement(EventsPage),
+    analytics: React.createElement(AnalyticsPage),
+    policy: React.createElement(PolicyPage),
+    users: React.createElement(UsersPage),
+    export: React.createElement(ExportPage),
+  };
+
+  const pageTitles = {
+    dashboard:"Dashboard", events:"Live Events", analytics:"Analytics",
+    policy:"Policy Manager", users:"Users & Roles", export:"Compliance Export"
+  };
+
+  return React.createElement("div", { className:"app" },
+    React.createElement(Sidebar, { page, setPage, user }),
+    React.createElement("div", { className:"main" },
+      React.createElement("div", { className:"topbar" },
+        React.createElement("span", { className:"topbar-title" }, pageTitles[page]),
+        React.createElement("div", { className:"topbar-actions" },
+          React.createElement("button", { className:"btn btn-ghost btn-sm" }, "🔄 Sync Policy"),
+          React.createElement("button", { className:"btn btn-ghost btn-sm", onClick:()=>{setUser(null);authToken=null;localStorage.removeItem("dlp_token")} }, "Sign Out")
+        )
+      ),
+      React.createElement("div", { className:"content" }, pages[page])
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>

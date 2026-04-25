@@ -1,0 +1,8 @@
+/* overlay.css — minimal global style for DLP host elements */
+/* All real styles live in Shadow DOM to avoid platform conflicts */
+#__dlp_badge_host,
+#__dlp_toast_host {
+  all: initial;
+  position: fixed;
+  z-index: 2147483647;
+}
